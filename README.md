@@ -19,7 +19,7 @@ required for each. Then a program takes in your the period of time you work ever
 - Google Gemini AI
 
 ### Progress
-- [] Core scheduler logic
-- [] Integration of databases with scheduler
-- [] Integrating AI to break down and store tasks
-- [] GUI
+- [x] Core scheduler logic
+- [x] Integration of databases with scheduler
+- [ ] Integrating AI to break down and store tasks
+- [ ] GUI

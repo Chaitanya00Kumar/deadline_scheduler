@@ -8,6 +8,7 @@ db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scheduler.db
 conn = sq.connect(db_path)
 cursor = conn.cursor()
 
+#if __name__ == "__main__":
 cursor.execute("""
     CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY,
@@ -18,26 +19,27 @@ cursor.execute("""
         mins_dedicated INTEGER NOT NULL,
         overflowed INTEGER NOT NULL DEFAULT 0,
         completed INTEGER NOT NULL DEFAULT 0,
+        workblock_id INTEGER NOT NULL,
         completed_at TEXT
     )
 """)
 
-def insert_task(higher_id, parent_task_name, task_name, deadline, mins_dedicated):
+def insert_task(higher_id, parent_task_name, task_name, deadline, mins_dedicated)->int:
 
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO tasks (higher_id, parent_task_name, task_name, deadline, mins_dedicated, overflowed, completed, completed_at)
-        VALUES (?, ?, ?, ?, ?, 0, 0, 0)
+        INSERT INTO tasks (higher_id, parent_task_name, task_name, deadline, mins_dedicated, overflowed, completed, completed_at, workblock_id)
+        VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0)
     """, (higher_id, parent_task_name, task_name, deadline.isoformat(), mins_dedicated))
     conn.commit()
     lastid = cursor.lastrowid
     #conn.close()
     return lastid
 
-def load_tasks():
+def load_tasks()-> list:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, higher_id, task_name, mins_dedicated, deadline
+            SELECT id, higher_id, task_name, mins_dedicated, deadline, parent_task_name
             FROM tasks
             WHERE overflowed = 0 AND completed = 0
         """)
@@ -45,14 +47,14 @@ def load_tasks():
 
         tasks = []
         for row in rows:
-            task_id, higher_id, task_name, mins_dedicated, deadline_str = row
+            task_id, higher_id, task_name, mins_dedicated, deadline_str, parent_task_name = row
             deadline = datetime.fromisoformat(deadline_str)
-            tasks.append((task_name, mins_dedicated, deadline, task_id, higher_id))
-            #(task_name, min_dedicated, deadline, task_id, higher_id)
+            tasks.append((task_name, mins_dedicated, deadline, task_id, higher_id, parent_task_name))
+            #(task_name, min_dedicated, deadline, task_id, higher_id, parent_task_name)
             #conn.close()
         return tasks
 
-def mark_completed(task_id, completed_datestamp):
+def mark_completed(task_id, completed_datestamp)->None:
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE tasks
@@ -62,7 +64,16 @@ def mark_completed(task_id, completed_datestamp):
         conn.commit()
         #conn.close()
 
-def mark_overflow(task_id):
+def assign_workblock(task_id, workblock_id)->None:
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE tasks
+        SET workblock_id = ?
+        WHERE id = ?
+        """, (workblock_id, task_id))
+    conn.commit()
+
+def mark_overflow(task_id)->None:
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE tasks
@@ -72,7 +83,7 @@ def mark_overflow(task_id):
         conn.commit()
         #conn.close()
 
-def remove_task(task_id):
+def remove_task(task_id)->None:
         cursor = conn.cursor()
         cursor.execute("""
             DELETE FROM tasks
